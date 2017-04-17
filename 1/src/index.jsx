@@ -57,7 +57,7 @@ class App extends Component {
 					color: 'rgb(212, 212, 212)',
 					padding: '5px 10px'
 				}}>
-					{scores.length === 0 ? null : `${_.mean(scores)}ms`}
+					{scores.length === 0 ? null : `${_.mean(scores).toFixed(2)}ms`}
 					<span style={{ fontSize: '0.8em', marginLeft: '5px', color: 'gray' }}>
 						{_.map(scores, (a, i) => <span style={{ marginLeft: '5px' }}>{i}: {a}ms</span>)}
 					</span>
