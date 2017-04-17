@@ -1,7 +1,7 @@
 {
-  "name": "browser-template",
+  "name": "hci-course-1",
   "version": "0.0.1",
-  "description": "${yourDescription}",
+  "description": "hci-course-1",
   "main": "docs/index.html",
   "scripts": {
     "webpack": "./node_modules/.bin/webpack",
