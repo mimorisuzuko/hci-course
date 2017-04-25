@@ -9,99 +9,115 @@ const TRIAL = 5;
 const DISTANCE_LIST = [256, 384, 512];
 const WIDTH_LIST = [32, 64, 96];
 
-/**
- * @param {number[][]} data 
- */
-const reg = (data) => {
-	const { length } = data;
-	let avgX = 0;
-	let avgY = 0;
+class Graph extends Component {
+	constructor(props) {
+		super(props);
 
-	_.forEach(data, ([x, y]) => {
-		avgX += x / length;
-		avgY += y / length;
-	});
+		this.width = 0;
+	}
 
-	let c = 0;
-	let stdvX = 0;
-	let stdvY = 0;
+	componentDidMount() {
+		const { width, height } = ReactDOM.findDOMNode(this).getBoundingClientRect();
 
-	_.forEach(data, ([x, y]) => {
-		const dx = (x - avgX);
-		const dy = (y - avgY);
+		this.width = Math.min(width, height);
+	}
 
-		c += dx * dy;
-		stdvX += Math.pow(dx, 2);
-		stdvY += Math.pow(dy, 2);
-	});
+	render() {
+		const { props: { data, xLabel, yLabel }, width } = this;
+		const margin = 70;
+		const innerWidth = width - margin * 2;
+		const innerHeight = width - margin * 2;
+		let maxX = 0;
+		let maxY = 0;
+		let minX = Infinity;
 
-	stdvX = Math.sqrt(stdvX);
-	stdvY = Math.sqrt(stdvY);
+		_.forEach(data, ([x, y]) => {
+			minX = Math.min(x, minX);
+			maxX = Math.max(x, maxX);
+			maxY = Math.max(y, maxY);
+		});
 
-	const r = c / (stdvX * stdvY);
-	const slope = r * (stdvY / stdvX);
-	const intercept = avgY - (slope * avgX);
+		[maxX, maxY] = _.map([maxX, maxY], (a) => {
+			const { length } = String(_.floor(a));
 
-	return { r, slope, intercept };
-};
+			if (length === 1) {
+				return a;
+			}
 
-/**
- * @param {number[][]} data 
- * @param {Object} options 
- */
-const graph = (data, options = {}) => {
-	const { xLabel, yLabel, width, height, pad } = _.merge({ xLabel: 'x values', yLabel: 'y values', width: 400, height: 400, pad: 70 }, options);
-	const innerWidth = width - pad * 2;
-	const innerHeight = height - pad * 2;
-	let maxX = 0;
-	let maxY = 0;
-	let minX = Infinity;
+			return _.ceil(a, -(length - 2));
+		});
 
-	_.forEach(data, ([x, y]) => {
-		minX = Math.min(x, minX);
-		maxX = Math.max(x, maxX);
-		maxY = Math.max(y, maxY);
-	});
+		const dx = innerWidth / maxX;
+		const dy = innerHeight / maxY;
+		const points = _.map(data, ([x, y]) => <circle cx={margin + dx * x} cy={margin + (innerHeight - dy * y)} r={3} fill='rgb(0, 122, 204)' />);
+		const { r, slope, intercept } = this.reg(data);
 
-	[maxX, maxY] = _.map([maxX, maxY], (a) => {
-		const { length } = String(_.floor(a));
+		return (
+			<svg style={{ width: width || '100%', height: width || '100%' }}>
+				{
+					data.length > 1 ? [
+						<rect x={margin} y={margin} width={1} height={innerHeight} fill={'gray'} />,
+						<rect x={margin} y={margin + innerHeight} width={innerWidth} height={1} fill={'gray'} />,
+						<g fontSize={12}>
+							<text x={margin + innerWidth} y={margin + innerHeight - 5} fill='black' textAnchor='end'>{xLabel}</text>
+							<text x={margin + 3} y={margin + 14} fill='black'>{yLabel}</text>
+							<text x={margin + innerWidth} y={margin + innerHeight + 17} fill='black' textAnchor='end'>{maxX.toFixed(2)}</text>
+							<text x={margin - 3} y={margin + 14} fill='black' textAnchor='end'>{maxY.toFixed(2)}</text>
+							<text x={margin + innerWidth} textAnchor='end' y={margin}>MT = {intercept.toFixed(2)} + {slope.toFixed(2)}ID</text>
+							<text x={margin + innerWidth} textAnchor='end' y={margin + 17}>R^2 = {Math.pow(r, 2).toFixed(2)}</text>
+						</g>,
+						<line
+							x1={margin + minX * dx}
+							y1={margin + (innerHeight - dy * (slope * minX + intercept))}
+							x2={margin + maxX * dx}
+							y2={margin + (innerHeight - dy * (slope * maxX + intercept))}
+							stroke='rgb(0, 122, 204)'
+							strokeDasharray='5, 5'
+						/>,
+						points
+					] : null
+				}
+			</svg>
+		);
+	}
 
-		if (length === 1) {
-			return a;
-		}
+	/**
+	 * @param {number[][]} data
+	 * @returns {{r: number, slope: number, intercept: number}}
+	 */
+	reg(data) {
+		const { length } = data;
+		let avgX = 0;
+		let avgY = 0;
 
-		return _.ceil(a, -(length - 2));
-	});
+		_.forEach(data, ([x, y]) => {
+			avgX += x / length;
+			avgY += y / length;
+		});
 
-	const dx = innerWidth / maxX;
-	const dy = innerHeight / maxY;
-	const points = _.map(data, ([x, y]) => <circle cx={pad + dx * x} cy={pad + (innerHeight - dy * y)} r={3} fill='rgb(0, 122, 204)' />);
-	const { r, slope, intercept } = reg(data);
+		let c = 0;
+		let stdvX = 0;
+		let stdvY = 0;
 
-	return (
-		<svg style={{ width, height }}>
-			<rect x={pad} y={pad} width={1} height={innerHeight} fill={'gray'} />
-			<rect x={pad} y={pad + innerHeight} width={innerWidth} height={1} fill={'gray'} />
-			<g fontSize={12}>
-				<text x={pad + innerWidth} y={pad + innerHeight - 5} fill='black' textAnchor='end'>{xLabel}</text>
-				<text x={pad + 3} y={pad + 14} fill='black'>{yLabel}</text>
-				<text x={pad + innerWidth} y={pad + innerHeight + 17} fill='black' textAnchor='end'>{maxX.toFixed(2)}</text>
-				<text x={pad - 3} y={pad + 14} fill='black' textAnchor='end'>{maxY.toFixed(2)}</text>
-				<text x={pad + innerWidth} textAnchor='end' y={pad}>MT = {intercept.toFixed(2)} + {slope.toFixed(2)}ID</text>
-				<text x={pad + innerWidth} textAnchor='end' y={pad + 17}>R^2 = {Math.pow(r, 2).toFixed(2)}</text>
-			</g>
-			<line
-				x1={pad + minX * dx}
-				y1={pad + (innerHeight - dy * (slope * minX + intercept))}
-				x2={pad + maxX * dx}
-				y2={pad + (innerHeight - dy * (slope * maxX + intercept))}
-				stroke='rgb(0, 122, 204)'
-				strokeDasharray='5, 5'
-			/>
-			{points}
-		</svg>
-	);
-};
+		_.forEach(data, ([x, y]) => {
+			const dx = (x - avgX);
+			const dy = (y - avgY);
+
+			c += dx * dy;
+			stdvX += Math.pow(dx, 2);
+			stdvY += Math.pow(dy, 2);
+		});
+
+		stdvX = Math.sqrt(stdvX);
+		stdvY = Math.sqrt(stdvY);
+
+		const r = c / (stdvX * stdvY);
+		const slope = r * (stdvY / stdvX);
+		const intercept = avgY - (slope * avgX);
+
+		return { r, slope, intercept };
+	}
+}
 
 class App extends Component {
 	constructor(props) {
@@ -126,57 +142,67 @@ class App extends Component {
 	}
 
 	render() {
-		const { state: { current: [d, w], end, started, width, height }, scores } = this;
-		let values = {};
+		const { state: { current: [d, w], end, started }, scores } = this;
+		let data = {};
 
 		_.forEach(_.toPairs(scores), ([k, vs]) => {
 			const [d, w] = JSON.parse(k);
 			const id = Math.log2(d / w + 1);
 
-			if (_.has(values, id)) {
-				_.forEach(vs, (v) => values[id].push(v));
+			if (_.has(data, id)) {
+				_.forEach(vs, (v) => data[id].push(v));
 			} else {
-				values[id] = _.slice(vs);
+				data[id] = _.slice(vs);
 			}
 		});
 
-		values = _.map(_.toPairs(values), ([id, ts]) => {
+		data = _.map(_.toPairs(data), ([id, ts]) => {
 			return [parseFloat(id), _.mean(ts)];
 		});
-
-		const panel = end ? graph(values, { xLabel: 'ID [bits]', yLabel: 'MT [ms]', width, height }) : [
-			<div style={{ position: 'absolute', left: 10, top: 10 }}>
-				<div>W: {w}</div>
-				<div>D: {d}</div>
-			</div>
-			,
-			<div onClick={this.onStart} style={{
-				position: 'absolute',
-				left: `calc(50% + ${-w / 2 - d / 2}px)`,
-				top: 0,
-				backgroundColor: started ? 'blue' : 'gray',
-				width: w,
-				height: '100%'
-			}} />
-			,
-			<div onClick={this.onEnd} style={{
-				position: 'absolute',
-				left: `calc(50% + ${-w / 2 + d / 2}px)`,
-				top: 0,
-				backgroundColor: 'green',
-				width: w,
-				height: '100%'
-			}} />
-		];
 
 		return (
 			<div style={{
 				width: '100%',
 				height: '100%',
-				position: 'relative'
+				display: 'flex'
 			}}>
-				{panel}
-			</div>
+				<div style={{
+					position: 'relative',
+					backgroundColor: 'rgb(240, 240, 240)',
+					flex: 2,
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center'
+				}}>
+					{
+						end ? <div style={{ fontSize: '2rem', fontWeight: '900' }}>終わり！！！！</div> : [
+							< div style={{ position: 'absolute', left: 10, top: 10 }}>
+								<div>W: {w}</div>
+								<div>D: {d}</div>
+							</div>,
+							<div onClick={this.onStart} style={{
+								position: 'absolute',
+								left: `calc(50% + ${-w / 2 - d / 2}px)`,
+								top: 0,
+								backgroundColor: started ? 'blue' : 'gray',
+								width: w,
+								height: '100%'
+							}} />,
+							<div onClick={this.onEnd} style={{
+								position: 'absolute',
+								left: `calc(50% + ${-w / 2 + d / 2}px)`,
+								top: 0,
+								backgroundColor: 'green',
+								width: w,
+								height: '100%'
+							}} />
+						]
+					}
+				</div>
+				<div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+					<Graph data={data} xLabel='ID [bits]' yLabel='MT [ms]' />
+				</div>
+			</div >
 		);
 	}
 
@@ -205,9 +231,7 @@ class App extends Component {
 		if (next) {
 			this.setState({ current: next, started: false });
 		} else {
-			const { width, height } = ReactDOM.findDOMNode(this).getBoundingClientRect();
-
-			this.setState({ end: true, width, height });
+			this.setState({ end: true });
 		}
 	}
 }
