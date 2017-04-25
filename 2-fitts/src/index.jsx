@@ -127,7 +127,24 @@ class App extends Component {
 
 	render() {
 		const { state: { current: [d, w], end, started, width, height }, scores } = this;
-		const panel = end ? graph(_.toPairs(scores), { xLabel: 'ID [bits]', yLabel: 'MT [ms]', width, height }) : [
+		let values = {};
+
+		_.forEach(_.toPairs(scores), ([k, vs]) => {
+			const [d, w] = JSON.parse(k);
+			const id = Math.log2(d / w + 1);
+
+			if (_.has(values, id)) {
+				_.forEach(vs, (v) => values[id].push(v));
+			} else {
+				values[id] = _.slice(vs);
+			}
+		});
+
+		values = _.map(_.toPairs(values), ([id, ts]) => {
+			return [parseFloat(id), _.mean(ts)];
+		});
+
+		const panel = end ? graph(values, { xLabel: 'ID [bits]', yLabel: 'MT [ms]', width, height }) : [
 			<div style={{ position: 'absolute', left: 10, top: 10 }}>
 				<div>W: {w}</div>
 				<div>D: {d}</div>
@@ -164,6 +181,9 @@ class App extends Component {
 	}
 
 	onStart() {
+		const { state: { started } } = this;
+		if (started) { return; }
+
 		this.startTime = Date.now();
 		this.setState({ started: true });
 	}
@@ -172,12 +192,12 @@ class App extends Component {
 		const { state: { current, started } } = this;
 		if (!started) { return; }
 
-		const id = Math.log2(current[0] / current[1] + 1);
+		const key = JSON.stringify(current);
 
-		if (_.has(this.scores, id)) {
-			this.scores[id] += (Date.now() - this.startTime) / TRIAL;
+		if (_.has(this.scores, key)) {
+			this.scores[key].push(Date.now() - this.startTime);
 		} else {
-			this.scores[id] = (Date.now() - this.startTime) / TRIAL;
+			this.scores[key] = [Date.now() - this.startTime];
 		}
 
 		const next = this.conditions.pop();
